@@ -16,41 +16,60 @@ def pregunta_01():
     El archivo limpio debe escribirse en "files/output/solicitudes_de_credito.csv"
 
     """
-    input_path = "files/input/solicitudes_de_credito.csv"
-    output_path = "files/output/solicitudes_de_credito.csv"
+    ruta_entrada = "files/input/solicitudes_de_credito.csv"
+    datos_raw = pd.read_csv(ruta_entrada, sep=";")
 
-    # Crear carpeta de salida si no existe
-    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    # Eliminar columna innecesaria si existe
+    if "Unnamed: 0" in datos_raw.columns:
+        datos_raw.drop(columns=["Unnamed: 0"], inplace=True)
 
-    # Cargar el archivo
-    df = pd.read_csv(input_path, sep=",", encoding="utf-8")
+    # Eliminar filas con datos faltantes y duplicados
+    datos_raw.dropna(inplace=True)
+    datos_raw.drop_duplicates(inplace=True)
 
-    # Eliminar duplicados
-    df = df.drop_duplicates()
-
-    # Eliminar columnas completamente vacías (si existen)
-    df = df.dropna(axis=1, how="all")
-
-    # Eliminar filas completamente vacías
-    df = df.dropna(axis=0, how="all")
-
-    # Opcional: Eliminar filas con valores faltantes en columnas clave
-    # (si conoces qué columnas son críticas, puedes especificarlas)
-    df = df.dropna(
-        subset=[
-            "sexo",
-            "tipo_de_emprendimiento",
-            "idea_negocio",
-            "barrio",
-            "línea_crédito",
-        ],
-        how="any",
+    # Corregir formato de fecha
+    datos_raw[["dia", "mes", "anio"]] = datos_raw["fecha_de_beneficio"].str.split(
+        "/", expand=True
     )
 
-    # Normalización de texto (opcional pero común)
-    df["idea_negocio"] = df["idea_negocio"].str.lower().str.strip()
-    df["barrio"] = df["barrio"].str.lower().str.strip()
-    df["línea_crédito"] = df["línea_crédito"].str.lower().str.strip()
+    # Ajustar fechas con año de 2 dígitos
+    condicion_anio_corto = datos_raw["anio"].str.len() < 4
+    datos_raw.loc[condicion_anio_corto, ["dia", "anio"]] = datos_raw.loc[
+        condicion_anio_corto, ["anio", "dia"]
+    ].values
 
-    # Guardar archivo limpio
-    df.to_csv(output_path, index=False)
+    # Formatear la fecha a YYYY-MM-DD
+    datos_raw["fecha_de_beneficio"] = (
+        datos_raw["anio"] + "-" + datos_raw["mes"] + "-" + datos_raw["dia"]
+    )
+    datos_raw.drop(columns=["dia", "mes", "anio"], inplace=True)
+
+    # Normalizar texto en columnas categóricas
+    columnas_texto = ["sexo", "tipo_de_emprendimiento", "idea_negocio", "línea_credito"]
+    datos_raw[columnas_texto] = datos_raw[columnas_texto].apply(
+        lambda col: col.str.lower().replace(["-", "_"], " ", regex=True).str.strip()
+    )
+    datos_raw["barrio"] = (
+        datos_raw["barrio"].str.lower().replace(["-", "_"], " ", regex=True).str.strip()
+    )
+
+    # Limpiar y convertir monto de crédito
+    datos_raw["monto_del_credito"] = (
+        datos_raw["monto_del_credito"].str.replace(r"[$, ]", "", regex=True).str.strip()
+    )
+    datos_raw["monto_del_credito"] = (
+        pd.to_numeric(datos_raw["monto_del_credito"], errors="coerce")
+        .fillna(0)
+        .astype(int)
+    )
+
+    # Eliminar duplicados nuevamente por seguridad
+    datos_raw.drop_duplicates(inplace=True)
+
+    # Crear carpeta de salida si no existe
+    ruta_salida = "files/output"
+    os.makedirs(ruta_salida, exist_ok=True)
+
+    # Guardar el archivo limpio
+    archivo_salida = os.path.join(ruta_salida, "solicitudes_de_credito.csv")
+    datos_raw.to_csv(archivo_salida, sep=";", index=False)
