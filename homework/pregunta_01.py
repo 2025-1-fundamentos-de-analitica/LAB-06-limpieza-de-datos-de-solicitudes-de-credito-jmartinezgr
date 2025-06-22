@@ -16,60 +16,60 @@ def pregunta_01():
     El archivo limpio debe escribirse en "files/output/solicitudes_de_credito.csv"
 
     """
-    ruta_entrada = "files/input/solicitudes_de_credito.csv"
-    datos_raw = pd.read_csv(ruta_entrada, sep=";")
 
-    # Eliminar columna innecesaria si existe
-    if "Unnamed: 0" in datos_raw.columns:
-        datos_raw.drop(columns=["Unnamed: 0"], inplace=True)
+    input_path = "files/input/solicitudes_de_credito.csv"
+    raw_data = pd.read_csv(input_path, sep=";")
 
-    # Eliminar filas con datos faltantes y duplicados
-    datos_raw.dropna(inplace=True)
-    datos_raw.drop_duplicates(inplace=True)
+    # Remove unnecessary column
+    raw_data.drop(columns=["Unnamed: 0"], inplace=True)
 
-    # Corregir formato de fecha
-    datos_raw[["dia", "mes", "anio"]] = datos_raw["fecha_de_beneficio"].str.split(
+    # Remove rows with missing data and duplicates
+    raw_data.dropna(inplace=True)
+    raw_data.drop_duplicates(inplace=True)
+
+    # Fix date format
+    raw_data[["day", "month", "year"]] = raw_data["fecha_de_beneficio"].str.split(
         "/", expand=True
     )
-
-    # Ajustar fechas con año de 2 dígitos
-    condicion_anio_corto = datos_raw["anio"].str.len() < 4
-    datos_raw.loc[condicion_anio_corto, ["dia", "anio"]] = datos_raw.loc[
-        condicion_anio_corto, ["anio", "dia"]
+    short_year_condition = raw_data["year"].str.len() < 4
+    raw_data.loc[short_year_condition, ["day", "year"]] = raw_data.loc[
+        short_year_condition, ["year", "day"]
     ].values
-
-    # Formatear la fecha a YYYY-MM-DD
-    datos_raw["fecha_de_beneficio"] = (
-        datos_raw["anio"] + "-" + datos_raw["mes"] + "-" + datos_raw["dia"]
+    raw_data["fecha_de_beneficio"] = (
+        raw_data["year"] + "-" + raw_data["month"] + "-" + raw_data["day"]
     )
-    datos_raw.drop(columns=["dia", "mes", "anio"], inplace=True)
+    raw_data.drop(columns=["day", "month", "year"], inplace=True)
 
-    # Normalizar texto en columnas categóricas
-    columnas_texto = ["sexo", "tipo_de_emprendimiento", "idea_negocio", "línea_credito"]
-    datos_raw[columnas_texto] = datos_raw[columnas_texto].apply(
+    # Normalize text in categorical columns
+    text_columns = ["sexo", "tipo_de_emprendimiento", "idea_negocio", "línea_credito"]
+    raw_data[text_columns] = raw_data[text_columns].apply(
         lambda col: col.str.lower().replace(["-", "_"], " ", regex=True).str.strip()
     )
-    datos_raw["barrio"] = (
-        datos_raw["barrio"].str.lower().replace(["-", "_"], " ", regex=True).str.strip()
+    raw_data["barrio"] = (
+        raw_data["barrio"].str.lower().replace(["-", "_"], " ", regex=True)
     )
 
-    # Limpiar y convertir monto de crédito
-    datos_raw["monto_del_credito"] = (
-        datos_raw["monto_del_credito"].str.replace(r"[$, ]", "", regex=True).str.strip()
+    # Clean and convert credit amount
+    raw_data["monto_del_credito"] = (
+        raw_data["monto_del_credito"].str.replace("[$, ]", "", regex=True).str.strip()
     )
-    datos_raw["monto_del_credito"] = (
-        pd.to_numeric(datos_raw["monto_del_credito"], errors="coerce")
+    raw_data["monto_del_credito"] = (
+        pd.to_numeric(raw_data["monto_del_credito"], errors="coerce")
         .fillna(0)
         .astype(int)
     )
+    raw_data["monto_del_credito"] = (
+        raw_data["monto_del_credito"].astype(str).str.replace(".00", "")
+    )
 
-    # Eliminar duplicados nuevamente por seguridad
-    datos_raw.drop_duplicates(inplace=True)
+    # Remove duplicates again
+    raw_data.drop_duplicates(inplace=True)
 
-    # Crear carpeta de salida si no existe
-    ruta_salida = "files/output"
-    os.makedirs(ruta_salida, exist_ok=True)
+    # Create output folder if it doesn't exist
+    output_path = "files/output"
+    os.makedirs(output_path, exist_ok=True)
 
-    # Guardar el archivo limpio
-    archivo_salida = os.path.join(ruta_salida, "solicitudes_de_credito.csv")
-    datos_raw.to_csv(archivo_salida, sep=";", index=False)
+    output_file = os.path.join(output_path, "solicitudes_de_credito.csv")
+    raw_data.to_csv(output_file, sep=";", index=False)
+
+    return raw_data.head()
